@@ -3,8 +3,6 @@
 Just some little dev tools to probe IOKit.  
 Makefile is designed to build all-in-one binaries for both iOS and macOS.
 
----
-
 # `ioclass`
 
 Takes an IOKit class name as argument and prints its class hierarchy.  
@@ -17,8 +15,6 @@ Takes an IOKit class name as argument and prints its class hierarchy.
       IOService
        IORegistryEntry
         OSObject
-
----
 
 # `ioprint`
 
@@ -83,8 +79,6 @@ Try to set properties on all `IOHIDUserClient` instances:
     IOHIDUserClient: (os/kern) successful (0x0)
 
 (Note: The return value doesn't necessarily indicate that properties were actually set. Usually for user clients, they are not.)
-
----
 
 # `ioscan`
 
