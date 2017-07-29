@@ -1,11 +1,6 @@
 .DS_Store
+/bin
 /include
-/ioclass
-/ioclass.ios
-/ioclass.osx
-/ioprint
-/ioprint.ios
-/ioprint.osx
-/ioscan
-/ioscan.ios
-/ioscan.osx
+/pkg
+/*.tar.xz
+/*.deb

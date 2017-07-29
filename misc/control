@@ -1,0 +1,10 @@
+Package: net.siguza.iokit-utils
+Name: iokit-utils
+Architecture: iphoneos-arm
+Description: IOKit probing toolkit
+ Dev tools for probing IOKit.<br>
+ <a href="https://github.com/Siguza/iokit-utils">Free and open source</a>.
+Maintainer: Siguza <siguza@siguza.net>
+Author: Siguza <siguza@siguza.net>
+Homepage: https://github.com/Siguza/iokit-utils
+Section: Development
