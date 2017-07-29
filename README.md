@@ -22,12 +22,12 @@ Iterate over all entries in a registry plane and perform operations on them.
 
 Usage:
 
-    ioprint [-s] [-d] [-p Plane] [ClassName]
+    ioprint [-s] [-d] [-p Plane] [Name]
 
 All arguments are optional.  
 Class names of all considered objects as well as return values are always printed.
 
-- `ClassName`: Limit the performed operations to only objects that extend `ClassName`. If none is given, all objects are processed.
+- `Name`: Limit the performed operations to only objects that either extend a class `Name`, or whose name in the registry is `Name`. If none is given, all objects are processed.
 - `-d`: Print the registry properties of all objects.
 - `-s`: Try to set properties `<key>herp</key><string>derp</string>` on all objects.
 - `-p Plane`: Iterate over registry plane `Plane`. Default is `IOService`.
@@ -72,6 +72,11 @@ Print properties of all `IOHIDUserClient` instances:
         <true/>
     </dict>
     </plist>
+
+List all properties of the registry root:
+
+    bash$ ioprint -d Root
+    # [ excessive output omitted ]
 
 Try to set properties on all `IOHIDUserClient` instances:
 
