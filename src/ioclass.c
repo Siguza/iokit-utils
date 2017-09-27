@@ -5,23 +5,52 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 
-#define LOG(str, args...) do { printf(str "\n", ##args); } while(0)
+#include "common.h"
 
 int main(int argc, const char **argv)
 {
-    if(argc < 2)
+    bool bundle = false;
+    int aoff;
+    for(aoff = 1; aoff < argc; ++aoff)
     {
-        LOG("Usage: %s ClassName", argv[0]);
+        if(argv[aoff][0] != '-')
+        {
+            break;
+        }
+        if(strcmp(argv[aoff], "-b") == 0)
+        {
+            bundle = true;
+        }
+    }
+
+    if(argc - aoff < 1)
+    {
+        LOG("Usage: %s [-b] ClassName", argv[0]);
         return 1;
     }
 
-    CFStringRef class = CFStringCreateWithCStringNoCopy(NULL, argv[1], kCFStringEncodingUTF8, kCFAllocatorNull);
-    for(int i = 0; class != NULL; ++i)
+    CFStringRef class = CFStringCreateWithCStringNoCopy(NULL, argv[aoff], kCFStringEncodingUTF8, kCFAllocatorNull);
+    if(bundle)
     {
-        LOG("%*s%s", i, "", CFStringGetCStringPtr(class, kCFStringEncodingUTF8));
-        CFStringRef super = IOObjectCopySuperclassForClass(class);
-        CFRelease(class);
-        class = super;
+        CFStringRef str = IOObjectCopyBundleIdentifierForClass(class);
+        if(str)
+        {
+            LOG("%s", CFStringGetCStringPtr(str, kCFStringEncodingUTF8));
+        }
+        else
+        {
+            LOG(COLOR_RED "Class not found" COLOR_RESET);
+        }
+    }
+    else
+    {
+        for(int i = 0; class != NULL; ++i)
+        {
+            LOG("%*s%s", i, "", CFStringGetCStringPtr(class, kCFStringEncodingUTF8));
+            CFStringRef super = IOObjectCopySuperclassForClass(class);
+            CFRelease(class);
+            class = super;
+        }
     }
 
     return 0;

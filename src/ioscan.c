@@ -1,7 +1,9 @@
+#include <errno.h>              // errno
+#include <math.h>               // floor, log2
 #include <stdbool.h>            // bool, true, false
 #include <stdint.h>             // uint32_t, uint64_t
-#include <stdio.h>              // printf
-#include <stdlib.h>             // strtol
+#include <stdlib.h>             // strtol, malloc
+#include <string.h>             // strerror, strlcpy
 
 #include <mach/kern_return.h>   // kern_return_t, KERN_SUCCESS
 #include <mach/mach_error.h>    // mach_error_string
@@ -11,33 +13,292 @@
 
 #include <IOKit/IOKitLib.h>     // IO*, io_*, kIO*
 
-#define LOG(str, args...) printf(str, ##args)
+#include "common.h"
+
+typedef struct ioscan
+{
+    struct ioscan *next;
+    CFStringRef class;
+    CFStringRef ucClass;
+    io_name_t name;
+    uint32_t type;
+    kern_return_t spawn;
+    io_connect_t one;
+    io_connect_t two;
+} ioscan_t;
+
+static ioscan_t** processEntry(io_object_t o, const char *plane, const char *match, uint32_t min, uint32_t max, bool only_success, ioscan_t **ptr)
+{
+    io_name_t name;
+    kern_return_t ret = IORegistryEntryGetName(o, name);
+    if(ret != KERN_SUCCESS)
+    {
+        LOG(COLOR_RED "IORegistryEntryGetName: %s" COLOR_RESET, mach_error_string(ret));
+        exit(1);
+    }
+    if(!match || IOObjectConformsTo(o, match) || strcmp(name, match) == 0)
+    {
+        CFStringRef class = IOObjectCopyClass(o);
+        if(!class)
+        {
+            LOG(COLOR_RED "IOObjectCopyClass(%s): %s" COLOR_RESET, name, mach_error_string(ret));
+            exit(1);
+        }
+
+        for(uint32_t i = min; i <= max; ++i)
+        {
+            io_connect_t one = MACH_PORT_NULL,
+                         two = MACH_PORT_NULL;
+            ret = IOServiceOpen(o, mach_task_self(), i, &one);
+            if(ret == KERN_SUCCESS && MACH_PORT_VALID(one))
+            {
+                IOServiceOpen(o, mach_task_self(), i, &two);
+            }
+
+            if(!only_success || ret == KERN_SUCCESS)
+            {
+                ioscan_t *data = malloc(sizeof(ioscan_t));
+                if(!data)
+                {
+                    LOG(COLOR_RED "Failed to allocate entry for %s: %s" COLOR_RESET, name, strerror(errno));
+                    exit(1);
+                }
+                data->next = NULL;
+                data->class = class;
+                CFRetain(class);
+                strlcpy(data->name, name, sizeof(io_name_t));
+                data->type = i;
+                data->spawn = ret;
+                data->one = one;
+                data->two = two;
+                data->ucClass = NULL;
+                if(ret == KERN_SUCCESS && MACH_PORT_VALID(one))
+                {
+                    io_iterator_t it = MACH_PORT_NULL;
+                    if(IORegistryEntryGetChildIterator(o, plane, &it) == KERN_SUCCESS)
+                    {
+                        io_object_t client = MACH_PORT_NULL;
+                        while((client = IOIteratorNext(it)) != 0)
+                        {
+                            CFMutableDictionaryRef p = NULL;
+                            ret = IORegistryEntryCreateCFProperties(client, &p, NULL, 0);
+                            if(ret == KERN_SUCCESS && p)
+                            {
+                                const void *ptr = CFDictionaryGetValue(p, CFSTR("IOUserClientCreator"));
+                                uint32_t pid;
+                                if(ptr && CFGetTypeID(ptr) == CFStringGetTypeID() && sscanf(CFStringGetCStringPtr(ptr, kCFStringEncodingUTF8), "pid %u,", &pid) == 1)
+                                {
+                                    if(pid == getpid())
+                                    {
+                                        CFStringRef ucClass = IOObjectCopyClass(client);
+                                        if(ucClass)
+                                        {
+                                            data->ucClass = ucClass;
+                                        }
+                                        CFRelease(p);
+                                        IOObjectRelease(client);
+                                        break;
+                                    }
+                                }
+                            }
+                            if(p) CFRelease(p);
+                            IOObjectRelease(client);
+                        }
+                        IOObjectRelease(it);
+                    }
+                }
+
+                *ptr = data;
+                ptr = &data->next;
+            }
+
+            if(one) IOServiceClose(one);
+            if(two) IOServiceClose(two);
+        }
+
+        CFRelease(class);
+    }
+    return ptr;
+}
+
+static void print_help(const char *self)
+{
+    printf("Usage:\n"
+           "    %s [options] [name [min [max]]]\n"
+           "\n"
+           "Description:\n"
+           "    Iterate over all registry entries and try to spawn UserClients.\n"
+           "    If name is given, only entries with matching class or instance name are considered.\n"
+           "    If min and max are given, all types in between are tried.\n"
+           "    If only min is given, only that type is tried, otherwise it defaults to type 0.\n"
+           "\n"
+           "Options:\n"
+           "    -h          Print this help and exit\n"
+           "    -p plane    Iterate over the given registry plane (default: IOService)\n"
+           "    -s          Print only successful spawning attempts\n"
+           , self
+    );
+}
 
 int main(int argc, const char **argv)
 {
-    LOG("%-40s%-40s%-64s %-6s %-6s %s\n", "Class", "Name", "Spawn", "one", "two", "equal");
-    io_iterator_t it;
-    IOServiceGetMatchingServices(kIOMasterPortDefault, IOServiceMatching(argc >= 2 ? argv[1] : "IOService"), &it);
-    io_object_t o;
-    int type = argc >= 3 ? (int)strtol(argv[2], NULL, 0) : 0;
-    while((o = IOIteratorNext(it)) != 0)
+    bool only_success = false;
+    const char *plane = "IOService";
+    int aoff;
+    for(aoff = 1; aoff < argc; ++aoff)
     {
-        kern_return_t ret = 0;
-
-        io_name_t name;
-        IORegistryEntryGetName(o, name);
-
-        io_connect_t one = MACH_PORT_NULL,
-                     two = MACH_PORT_NULL;
-        ret = IOServiceOpen(o, mach_task_self(), type, &one);
-        if(ret == KERN_SUCCESS && MACH_PORT_VALID(one))
+        if(argv[aoff][0] != '-')
         {
-            IOServiceOpen(o, mach_task_self(), type, &two);
+            break;
         }
-        LOG("%-40s%-40s%-64s %-6u %-6u %s\n", CFStringGetCStringPtr(IOObjectCopyClass(o), kCFStringEncodingUTF8), name, mach_error_string(ret), one, two, two == 0 ? "" : one == two ? "==" : "!=");
-
-        if(one) IOServiceClose(one);
-        if(two) IOServiceClose(two);
+        else if(strcmp(argv[aoff], "-h") == 0)
+        {
+            print_help(argv[0]);
+            return 0;
+        }
+        else if(strcmp(argv[aoff], "-p") == 0)
+        {
+            ++aoff;
+            if(aoff >= argc)
+            {
+                LOG(COLOR_RED "Missing argument to -p" COLOR_RESET);
+                printf("\n");
+                print_help(argv[0]);
+                return 1;
+            }
+            plane = argv[aoff];
+        }
+        else if(strcmp(argv[aoff], "-s") == 0)
+        {
+            only_success = true;
+        }
+        else
+        {
+            LOG(COLOR_RED "Unrecognized argument: %s" COLOR_RESET, argv[aoff]);
+            printf("\n");
+            print_help(argv[0]);
+            return 1;
+        }
     }
+
+    const char *match = NULL;
+    uint32_t min = 0,
+             max = 0;
+    if(aoff < argc)
+    {
+        match = argv[aoff];
+        ++aoff;
+        if(aoff < argc)
+        {
+            min = max = (uint32_t)strtol(argv[aoff], NULL, 0);
+            ++aoff;
+            if(aoff < argc)
+            {
+                max = (uint32_t)strtol(argv[aoff], NULL, 0);
+                ++aoff;
+            }
+        }
+    }
+
+    // Need to get all entries here, because spawning clients invalidates our iterator
+    size_t num = 1024,
+           idx = 0;
+    io_object_t *objs = malloc(num * sizeof(io_object_t));
+    if(!objs)
+    {
+        LOG(COLOR_RED "Failed to allocate objects buffer: %s" COLOR_RESET, strerror(errno));
+        return 1;
+    }
+
+    objs[idx++] = IORegistryGetRootEntry(kIOMasterPortDefault);
+    io_iterator_t it = MACH_PORT_NULL;
+    if(IORegistryCreateIterator(kIOMasterPortDefault, plane, kIORegistryIterateRecursively, &it) == KERN_SUCCESS)
+    {
+        io_object_t o;
+        while((o = IOIteratorNext(it)) != 0)
+        {
+            if(idx >= num)
+            {
+                num *= 2;
+                objs = realloc(objs, num);
+                if(!objs)
+                {
+                    LOG(COLOR_RED "Failed to reallocate objects buffer: %s" COLOR_RESET, strerror(errno));
+                    return 1;
+                }
+            }
+            objs[idx++] = o;
+        }
+        IOObjectRelease(it);
+    }
+
+    ioscan_t *head = NULL,
+             **ptr = &head;
+    for(size_t i = 0; i < idx; ++i)
+    {
+        ptr = processEntry(objs[i], plane, match, min, max, only_success, ptr);
+        IOObjectRelease(objs[i]);
+    }
+    free(objs);
+    objs = NULL;
+
+    int classLen = strlen("Class"),
+        nameLen  = strlen("Name"),
+        typeLen  = strlen("Type"),
+        spawnLen = strlen("Spawn"),
+        ucLen    = strlen("UC"),
+        oneLen   = strlen("One"),
+        twoLen   = strlen("Two"),
+        equalLen = strlen("Equal");
+
+    for(ioscan_t *node = head; node != NULL; node = node->next)
+    {
+        int l = strlen(CFStringGetCStringPtr(node->class, kCFStringEncodingUTF8));
+        if(l > classLen) classLen = l;
+        l = strlen(node->name);
+        if(l > nameLen) nameLen = l;
+        l = 1 + (node->type == 0 ? 0 : (int)floor(log10(node->type))); // Decimal
+        if(l > typeLen) typeLen = l;
+        spawnLen = strlen(mach_error_string(node->spawn));
+        if(l > spawnLen) spawnLen = l;
+        if(node->ucClass)
+        {
+            l = strlen(CFStringGetCStringPtr(node->ucClass, kCFStringEncodingUTF8));
+            if(l > ucLen) ucLen = l;
+        }
+        l = 1 + (node->one == 0 ? 0 : (int)floor(log2(node->one) / 4)); // Hex
+        if(l > oneLen) oneLen = l;
+        l = 1 + (node->two == 0 ? 0 : (int)floor(log2(node->two) / 4)); // Hex
+        if(l > twoLen) twoLen = l;
+    }
+
+    LOG(COLOR_CYAN "%-*s %-*s %*s %-*s %-*s %*s %*s %-*s" COLOR_RESET,
+        classLen, "Class",
+        nameLen,  "Name",
+        typeLen,  "Type",
+        spawnLen, "Spawn",
+        ucLen,    "UC",
+        oneLen,   "One",
+        twoLen,   "Two",
+        equalLen, "Equal"
+    );
+    for(ioscan_t *node = head; node != NULL; )
+    {
+        ioscan_t *next = node->next;
+        LOG("%-*s %-*s %s%*u%s %s%-*s%s %s%-*s%s %*x %*x %-*s",
+            classLen, CFStringGetCStringPtr(node->class, kCFStringEncodingUTF8),
+            nameLen, node->name,
+            COLOR_PURPLE, typeLen, node->type, COLOR_RESET,
+            node->spawn == KERN_SUCCESS ? COLOR_GREEN : COLOR_YELLOW, spawnLen, mach_error_string(node->spawn), COLOR_RESET,
+            COLOR_BLUE, ucLen, node->ucClass ? CFStringGetCStringPtr(node->ucClass, kCFStringEncodingUTF8) : "", COLOR_RESET,
+            oneLen, node->one,
+            twoLen, node->two,
+            equalLen, node->two == 0 ? "" : node->one == node->two ? "==" : "!=");
+        CFRelease(node->class);
+        if(node->ucClass) CFRelease(node->ucClass);
+        free(node);
+        node = next;
+    }
+
     return 0;
 }

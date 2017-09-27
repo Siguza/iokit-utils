@@ -5,7 +5,11 @@ Makefile is designed to build all-in-one binaries for both iOS and macOS.
 
 # `ioclass`
 
-Takes an IOKit class name as argument and prints its class hierarchy.  
+Usage:
+
+    ioclass [-b] [Name]
+
+Takes an IOKit class name as argument and, if `-b` is given, prints the bundle ID of the providing kext, otherwise prints its class hierarchy.
 
 ### Example
 
@@ -22,13 +26,14 @@ Iterate over all entries in a registry plane and perform operations on them.
 
 Usage:
 
-    ioprint [-s] [-d] [-p Plane] [Name]
+    ioprint [-d] [-h] [-p Plane] [-s] [Name]
 
 All arguments are optional.  
 Class names of all considered objects as well as return values are always printed.
 
 - `Name`: Limit the performed operations to only objects that either extend a class `Name`, or whose name in the registry is `Name`. If none is given, all objects are processed.
 - `-d`: Print the registry properties of all objects.
+- `-h`: Print a help and exit.
 - `-s`: Try to set properties `<key>herp</key><string>derp</string>` on all objects.
 - `-p Plane`: Iterate over registry plane `Plane`. Default is `IOService`.
 
@@ -44,14 +49,9 @@ List all entries of the `IOService` plane:
 List all entries of the `IOUSB` plane:
 
     bash$ ioprint -p IOUSB
-    IOUSBRootHubDevice
-    IOUSBDevice
-    IOUSBDevice
-    IOUSBDevice
-    IOUSBDevice
-    IOUSBDevice
-    IOUSBDevice
-    IOUSBDevice
+    IORegistryEntry(Root)
+    IOUSBRootHubDevice(Root Hub Simulation Simulation)
+    IOUSBDevice(Bluetooth USB Host Controller)
 
 List all `IOUserClient` instances:
 
@@ -88,16 +88,19 @@ Try to set properties on all `IOHIDUserClient` instances:
 # `ioscan`
 
 Iterate over `IOService`s and try to spawn user clients.  
-Prints name and class of all services, whether spawning a client was successful, and whether multiple user clients have the same ID (i.e. are shared clients).
+Prints name and class of all services, whether spawning a client was successful, class of the spawned client, and whether multiple user clients have the same ID (i.e. are shared clients).
 
 Usage:
 
-    ioscan [ClassName [type]]
+    ioscan [-h] [-p Plane] [-s] [Name [min [max]]]
 
-- `ClassName`: Only iterate over services extending `ClassName`. Default is `IOService`.
-- `type`: Try spawning a user client of that type (can be given in base 8, 10 or 16). Default is `0`.
+- `Name`: Limit the performed operations to only objects that either extend a class `Name`, or whose name in the registry is `Name`. If none is given, all objects are processed.
+- `min` and `max`: Try spawning user clients of certain types (can be given in base 8, 10 or 16). If both `min` and `max` are given, all types in that range will be tried. If only `min` is given, that one type will be tried. Defaults to `0`.
+- `-h`: Print a help and exit.
+- `-s`: Only print entries where a user client was successfully spawned.
+- `-p Plane`: Iterate over registry plane `Plane`. Default is `IOService`.
 
-Both arguments are optional, but `type` can only be given if `ClassName` is given too.
+All arguments are optional, but `min` and `max` can only be given if `Name` is given too.
 
 ### Examples
 
@@ -109,13 +112,13 @@ Spawn a user client for every service:
 Spawn an AMFI user client:
 
     bash$ ioscan AppleMobileFileIntegrity
-    Class                                   Name                                    Spawn                                                            one    two    equal
-    AppleMobileFileIntegrity                AppleMobileFileIntegrity                (os/kern) successful                                             3843   4099   !=
+    Class                    Name                     Type Spawn                UC                                   One   Two Equal
+    AppleMobileFileIntegrity AppleMobileFileIntegrity    0 (os/kern) successful AppleMobileFileIntegrityUserClient 23207 23107 !=   
 
 Spawn an `IOGraphicsDevice` user client of type `1`:
 
     bash$ ioscan IOGraphicsDevice 1
-    Class                                   Name                                    Spawn                                                            one    two    equal
-    NVDA                                    NVDA                                    (os/kern) successful                                             3843   3843   ==
-    NVDA                                    NVDA                                    (os/kern) successful                                             4099   4099   ==
-    NVDA                                    NVDA                                    (os/kern) successful                                             4355   4355   ==
+    Class                 Name                  Type Spawn                UC                             One  Two Equal
+    AppleIntelFramebuffer AppleIntelFramebuffer    1 (os/kern) successful IOFramebufferSharedUserClient 8307 8307 ==   
+    AppleIntelFramebuffer AppleIntelFramebuffer    1 (os/kern) successful IOFramebufferSharedUserClient 8d07 8d07 ==   
+    AppleIntelFramebuffer AppleIntelFramebuffer    1 (os/kern) successful IOFramebufferSharedUserClient 9407 9407 ==   
