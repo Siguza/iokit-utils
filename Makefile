@@ -46,7 +46,7 @@ $(PKG)/control.tar.gz: $(PKG)/control
 	tar -czf '$(PKG)/control.tar.gz' --exclude '.DS_Store' --exclude '._*' --exclude 'control.tar.gz' --include '$(PKG)' --include '$(PKG)/control' -s '%^$(PKG)%.%' $(PKG)
 
 $(PKG)/data.tar.lzma: $(addprefix $(BINDIR)/, $(ALL)) | $(PKG)
-	tar -c --lzma -f '$(PKG)/data.tar.lzma' --exclude '.DS_Store' --exclude '._*' -s '%^build%./usr/bin%' @misc/template.tar $(BINDIR)
+	tar -c --lzma -f '$(PKG)/data.tar.lzma' --exclude '.DS_Store' --exclude '._*' -s '%^bin%./usr/bin%' @misc/template.tar $(BINDIR)
 
 $(PKG)/debian-binary: $(addprefix $(BINDIR)/, $(ALL)) | $(PKG)
 	echo '2.0' > "$(PKG)/debian-binary"
