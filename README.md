@@ -87,7 +87,7 @@ Try to set properties on all `IOHIDUserClient` instances:
 
 # `ioscan`
 
-Iterate over `IOService`s and try to spawn user clients.  
+Iterate over all entries in a registry plane and try to spawn user clients.  
 Prints name and class of all services, whether spawning a client was successful, class of the spawned client, and whether multiple user clients have the same ID (i.e. are shared clients).
 
 Usage:

@@ -33,18 +33,11 @@ static ioscan_t** processEntry(io_object_t o, const char *plane, const char *mat
     kern_return_t ret = IORegistryEntryGetName(o, name);
     if(ret != KERN_SUCCESS)
     {
-        LOG(COLOR_RED "IORegistryEntryGetName: %s" COLOR_RESET, mach_error_string(ret));
-        exit(1);
+        name[0] = '\0';
     }
-    if(!match || IOObjectConformsTo(o, match) || strcmp(name, match) == 0)
+    if(!match || IOObjectConformsTo(o, match) || (name[0] && strcmp(name, match) == 0))
     {
         CFStringRef class = IOObjectCopyClass(o);
-        if(!class)
-        {
-            LOG(COLOR_RED "IOObjectCopyClass(%s): %s" COLOR_RESET, name, mach_error_string(ret));
-            exit(1);
-        }
-
         for(uint32_t i = min; i <= max; ++i)
         {
             io_connect_t one = MACH_PORT_NULL,
@@ -65,7 +58,7 @@ static ioscan_t** processEntry(io_object_t o, const char *plane, const char *mat
                 }
                 data->next = NULL;
                 data->class = class;
-                CFRetain(class);
+                if(class) CFRetain(class);
                 strlcpy(data->name, name, sizeof(io_name_t));
                 data->type = i;
                 data->spawn = ret;
@@ -116,7 +109,7 @@ static ioscan_t** processEntry(io_object_t o, const char *plane, const char *mat
             if(two) IOServiceClose(two);
         }
 
-        CFRelease(class);
+        if(class) CFRelease(class);
     }
     return ptr;
 }
@@ -220,7 +213,7 @@ int main(int argc, const char **argv)
             if(idx >= num)
             {
                 num *= 2;
-                objs = realloc(objs, num);
+                objs = realloc(objs, num * sizeof(io_object_t));
                 if(!objs)
                 {
                     LOG(COLOR_RED "Failed to reallocate objects buffer: %s" COLOR_RESET, strerror(errno));
@@ -253,9 +246,13 @@ int main(int argc, const char **argv)
 
     for(ioscan_t *node = head; node != NULL; node = node->next)
     {
-        int l = strlen(CFStringGetCStringPtr(node->class, kCFStringEncodingUTF8));
+        int l  = strlen(node->class ? CFStringGetCStringPtr(node->class, kCFStringEncodingUTF8) : "failed");
         if(l > classLen) classLen = l;
         l = strlen(node->name);
+        if(l == 0)
+        {
+            l = strlen("failed");
+        }
         if(l > nameLen) nameLen = l;
         l = 1 + (node->type == 0 ? 0 : (int)floor(log10(node->type))); // Decimal
         if(l > typeLen) typeLen = l;
@@ -285,16 +282,16 @@ int main(int argc, const char **argv)
     for(ioscan_t *node = head; node != NULL; )
     {
         ioscan_t *next = node->next;
-        LOG("%-*s %-*s %s%*u%s %s%-*s%s %s%-*s%s %*x %*x %-*s",
-            classLen, CFStringGetCStringPtr(node->class, kCFStringEncodingUTF8),
-            nameLen, node->name,
+        LOG("%s%-*s%s %s%-*s%s %s%*u%s %s%-*s%s %s%-*s%s %*x %*x %-*s",
+            node->class ? "" : COLOR_RED, classLen, node->class ? CFStringGetCStringPtr(node->class, kCFStringEncodingUTF8) : "failed", node->class ? "" : COLOR_RESET,
+            node->name[0] ? "" : COLOR_RED, nameLen, node->name[0] ? node->name : "failed", node->name[0] ? "" : COLOR_RESET,
             COLOR_PURPLE, typeLen, node->type, COLOR_RESET,
             node->spawn == KERN_SUCCESS ? COLOR_GREEN : COLOR_YELLOW, spawnLen, mach_error_string(node->spawn), COLOR_RESET,
             COLOR_BLUE, ucLen, node->ucClass ? CFStringGetCStringPtr(node->ucClass, kCFStringEncodingUTF8) : "", COLOR_RESET,
             oneLen, node->one,
             twoLen, node->two,
             equalLen, node->two == 0 ? "" : node->one == node->two ? "==" : "!=");
-        CFRelease(node->class);
+        if(node->class) CFRelease(node->class);
         if(node->ucClass) CFRelease(node->ucClass);
         free(node);
         node = next;
