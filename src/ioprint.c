@@ -16,7 +16,7 @@ static void printEntry(io_object_t o, const char *match, bool dump, bool set)
     {
         CFStringRef key = CFSTR("herp");
         CFStringRef val = CFSTR("derp");
-        CFDictionaryRef dict = CFDictionaryCreate(NULL, (const void**)&key, (const void**)&val, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+        dict = CFDictionaryCreate(NULL, (const void**)&key, (const void**)&val, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
         if(dict == NULL)
         {
             LOG(COLOR_RED "Failed to create dict" COLOR_RESET);
