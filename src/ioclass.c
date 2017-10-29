@@ -9,7 +9,8 @@
 
 int main(int argc, const char **argv)
 {
-    bool bundle = false;
+    bool bundle  = false,
+         extends = false;
     int aoff;
     for(aoff = 1; aoff < argc; ++aoff)
     {
@@ -21,16 +22,62 @@ int main(int argc, const char **argv)
         {
             bundle = true;
         }
+        else if(strcmp(argv[aoff], "-e") == 0)
+        {
+            extends = true;
+        }
     }
 
     if(argc - aoff < 1)
     {
-        LOG("Usage: %s [-b] ClassName", argv[0]);
+        LOG("Usage: %s [-b] [-e] ClassName", argv[0]);
         return 1;
     }
 
     CFStringRef class = CFStringCreateWithCStringNoCopy(NULL, argv[aoff], kCFStringEncodingUTF8, kCFAllocatorNull);
-    if(bundle)
+    if(extends)
+    {
+        io_registry_entry_t root = IORegistryGetRootEntry(kIOMasterPortDefault);
+        CFDictionaryRef diag = IORegistryEntryCreateCFProperty(root, CFSTR("IOKitDiagnostics"), NULL, 0);
+        CFDictionaryRef classes = CFDictionaryGetValue(diag, CFSTR("Classes"));
+        CFIndex num = CFDictionaryGetCount(classes);
+        CFStringRef *names = malloc(num * sizeof(CFStringRef));
+        CFDictionaryGetKeysAndValues(classes, (const void**)names, NULL);
+
+        for(size_t i = 0; i < num; ++i)
+        {
+            CFStringRef actual = names[i];
+            CFStringRef current = actual;
+            CFRetain(current);
+            while(current != NULL)
+            {
+                if(CFEqual(current, class))
+                {
+                    if(bundle)
+                    {
+                        CFStringRef bndl = IOObjectCopyBundleIdentifierForClass(actual);
+                        LOG(COLOR_CYAN "%s" COLOR_RESET " (%s)", CFStringGetCStringPtr(actual, kCFStringEncodingUTF8), CFStringGetCStringPtr(bndl, kCFStringEncodingUTF8));
+                        CFRelease(bndl);
+                    }
+                    else
+                    {
+                        LOG(COLOR_CYAN "%s" COLOR_RESET, CFStringGetCStringPtr(actual, kCFStringEncodingUTF8));
+                    }
+                    CFRelease(current);
+                    break;
+                }
+                CFStringRef super = IOObjectCopySuperclassForClass(current);
+                CFRelease(current);
+                current = super;
+            }
+        }
+
+        free(names);
+        CFRelease(diag);
+        IOObjectRelease(root);
+        CFRelease(class);
+    }
+    else if(bundle)
     {
         CFStringRef str = IOObjectCopyBundleIdentifierForClass(class);
         if(str)
@@ -41,6 +88,8 @@ int main(int argc, const char **argv)
         {
             LOG(COLOR_RED "Class not found" COLOR_RESET);
         }
+        CFRelease(str);
+        CFRelease(class);
     }
     else
     {
