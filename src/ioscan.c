@@ -64,10 +64,12 @@ static ioscan_t** processEntry(io_object_t o, const char *plane, const char *mat
                 data->two = two;
 
                 strlcpy(data->name, name, sizeof(io_name_t));
-                ret = IOObjectGetClass(o, name);
+
+                io_name_t class;
+                ret = IOObjectGetClass(o, class);
                 if(ret == KERN_SUCCESS)
                 {
-                    strlcpy(data->class, name, sizeof(io_name_t));
+                    strlcpy(data->class, class, sizeof(io_name_t));
                 }
                 if(ret == KERN_SUCCESS && MACH_PORT_VALID(one))
                 {
@@ -87,37 +89,16 @@ static ioscan_t** processEntry(io_object_t o, const char *plane, const char *mat
                                 {
                                     if(pid == getpid())
                                     {
-                                        ret = IOObjectGetClass(client, name);
+                                        ret = IOObjectGetClass(client, class);
                                         if(ret == KERN_SUCCESS)
                                         {
-                                            strlcpy(data->ucClass, name, sizeof(io_name_t));
+                                            strlcpy(data->ucClass, class, sizeof(io_name_t));
                                         }
                                         IOObjectRelease(client);
                                         break;
                                     }
                                 }
                             }
-                            /*CFMutableDictionaryRef p = NULL;
-                            ret = IORegistryEntryCreateCFProperties(client, &p, NULL, 0);
-                            if(ret == KERN_SUCCESS && p)
-                            {
-                                const void *ptr = CFDictionaryGetValue(p, CFSTR("IOUserClientCreator"));
-                                uint32_t pid;
-                                if(ptr && CFGetTypeID(ptr) == CFStringGetTypeID() && sscanf(CFStringGetCStringPtr(ptr, kCFStringEncodingUTF8), "pid %u,", &pid) == 1)
-                                {
-                                    if(pid == getpid())
-                                    {
-                                        ret = IOObjectGetClass(client, name);
-                                        if(ret == KERN_SUCCESS)
-                                        {
-                                            strlcpy(data->ucClass, name, sizeof(io_name_t));
-                                        }
-                                        IOObjectRelease(client);
-                                        break;
-                                    }
-                                }
-                            }
-                            if(p) CFRelease(p);*/
                             IOObjectRelease(client);
                         }
                         IOObjectRelease(it);

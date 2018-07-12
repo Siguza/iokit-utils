@@ -1,4 +1,4 @@
-VERSION = 1.2.2
+VERSION = 1.2.3
 BINDIR  = bin
 SRCDIR  = src
 ALL     = $(patsubst $(SRCDIR)/%.c,%,$(wildcard $(SRCDIR)/*.c))
