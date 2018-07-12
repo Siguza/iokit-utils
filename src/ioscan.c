@@ -77,7 +77,27 @@ static ioscan_t** processEntry(io_object_t o, const char *plane, const char *mat
                         io_object_t client = MACH_PORT_NULL;
                         while((client = IOIteratorNext(it)) != 0)
                         {
-                            CFMutableDictionaryRef p = NULL;
+                            io_struct_inband_t buf;
+                            uint32_t len = sizeof(buf);
+                            ret = IORegistryEntryGetProperty(client, "IOUserClientCreator", buf, &len);
+                            if(ret == KERN_SUCCESS)
+                            {
+                                uint32_t pid;
+                                if(sscanf(buf, "pid %u,", &pid) == 1)
+                                {
+                                    if(pid == getpid())
+                                    {
+                                        ret = IOObjectGetClass(client, name);
+                                        if(ret == KERN_SUCCESS)
+                                        {
+                                            strlcpy(data->ucClass, name, sizeof(io_name_t));
+                                        }
+                                        IOObjectRelease(client);
+                                        break;
+                                    }
+                                }
+                            }
+                            /*CFMutableDictionaryRef p = NULL;
                             ret = IORegistryEntryCreateCFProperties(client, &p, NULL, 0);
                             if(ret == KERN_SUCCESS && p)
                             {
@@ -97,7 +117,7 @@ static ioscan_t** processEntry(io_object_t o, const char *plane, const char *mat
                                     }
                                 }
                             }
-                            if(p) CFRelease(p);
+                            if(p) CFRelease(p);*/
                             IOObjectRelease(client);
                         }
                         IOObjectRelease(it);
@@ -273,7 +293,7 @@ int main(int argc, const char **argv)
         if(l > nameLen) nameLen = l;
         l = 1 + (node->type == 0 ? 0 : (int)floor(log10(node->type))); // Decimal
         if(l > typeLen) typeLen = l;
-        spawnLen = strlen(mach_error_string(node->spawn));
+        l = strlen(mach_error_string(node->spawn));
         if(l > spawnLen) spawnLen = l;
         l = strlen(node->ucClass);
         if(l > ucLen) ucLen = l;
