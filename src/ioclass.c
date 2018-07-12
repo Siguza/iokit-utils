@@ -3,9 +3,9 @@
 #include <string.h>
 #include <mach/mach.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/IOKitLib.h>
 
 #include "common.h"
+#include "iokit.h"
 
 int main(int argc, const char **argv)
 {
@@ -26,12 +26,17 @@ int main(int argc, const char **argv)
         {
             extends = true;
         }
+        else
+        {
+            LOG(COLOR_RED "Unrecognized argument: %s" COLOR_RESET, argv[aoff]);
+            return -1;
+        }
     }
 
     if(argc - aoff < 1)
     {
         LOG("Usage: %s [-b] [-e] ClassName", argv[0]);
-        return 1;
+        return -1;
     }
 
     CFStringRef class = CFStringCreateWithCStringNoCopy(NULL, argv[aoff], kCFStringEncodingUTF8, kCFAllocatorNull);

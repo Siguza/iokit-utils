@@ -3,13 +3,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <mach/mach.h>
-
 #include <CoreFoundation/CoreFoundation.h>
-#include <IOKit/IOKitLib.h>
 
 #include "common.h"
+#include "iokit.h"
 
-static void printEntry(io_object_t o, const char *match, bool dump, bool set)
+static bool printEntry(io_object_t o, const char *match, bool dump, bool set)
 {
     static CFDictionaryRef dict = NULL;
     if(set && dict == NULL)
@@ -20,7 +19,7 @@ static void printEntry(io_object_t o, const char *match, bool dump, bool set)
         if(dict == NULL)
         {
             LOG(COLOR_RED "Failed to create dict" COLOR_RESET);
-            exit(1);
+            return false;
         }
     }
 
@@ -29,23 +28,23 @@ static void printEntry(io_object_t o, const char *match, bool dump, bool set)
     if(ret != KERN_SUCCESS)
     {
         LOG(COLOR_RED "IORegistryEntryGetName: %s" COLOR_RESET, mach_error_string(ret));
-        exit(1);
+        return false;
     }
     if(!match || IOObjectConformsTo(o, match) || strcmp(name, match) == 0)
     {
-        CFStringRef class = IOObjectCopyClass(o);
-        if(!class)
+        io_name_t class;
+        ret = IOObjectGetClass(o, class);
+        if(ret != KERN_SUCCESS)
         {
-            LOG(COLOR_RED "IOObjectCopyClass(%s): %s" COLOR_RESET, name, mach_error_string(ret));
-            exit(1);
+            LOG(COLOR_RED "class(%s): %s" COLOR_RESET, name, mach_error_string(ret));
+            return false;
         }
 
-        const char *className = CFStringGetCStringPtr(class, kCFStringEncodingUTF8);
         if(set)
         {
             kern_return_t ret = IORegistryEntrySetCFProperties(o, dict);
             LOG("%s%s(%s):%s %s%s%s",
-                COLOR_CYAN, className, name, COLOR_RESET,
+                COLOR_CYAN, class, name, COLOR_RESET,
                 ret == KERN_SUCCESS ? COLOR_GREEN : COLOR_YELLOW, mach_error_string(ret), COLOR_RESET
             );
         }
@@ -56,7 +55,7 @@ static void printEntry(io_object_t o, const char *match, bool dump, bool set)
                 CFMutableDictionaryRef p = NULL;
                 kern_return_t ret = IORegistryEntryCreateCFProperties(o, &p, NULL, 0);
                 LOG("%s%s(%s):%s %s%s%s",
-                    COLOR_CYAN, className, name, COLOR_RESET,
+                    COLOR_CYAN, class, name, COLOR_RESET,
                     ret == KERN_SUCCESS ? COLOR_GREEN : COLOR_YELLOW, mach_error_string(ret), COLOR_RESET
                 );
                 if(ret == KERN_SUCCESS)
@@ -76,11 +75,11 @@ static void printEntry(io_object_t o, const char *match, bool dump, bool set)
             }
             else
             {
-                LOG("%s%s(%s)%s", COLOR_CYAN, className, name, COLOR_RESET);
+                LOG("%s%s(%s)%s", COLOR_CYAN, class, name, COLOR_RESET);
             }
         }
-        CFRelease(class);
     }
+    return true;
 }
 
 static void print_help(const char *self)
@@ -149,18 +148,28 @@ int main(int argc, const char **argv)
 
     const char *match = aoff < argc ? argv[aoff] : NULL;
     io_object_t o = IORegistryGetRootEntry(kIOMasterPortDefault);
-    printEntry(o, match, dump, set);
+    bool succ = printEntry(o, match, dump, set);
     IOObjectRelease(o);
+    if(!succ)
+    {
+        return -1;
+    }
 
+    int retval = 0;
     io_iterator_t it = MACH_PORT_NULL;
     if(IORegistryCreateIterator(kIOMasterPortDefault, plane, kIORegistryIterateRecursively, &it) == KERN_SUCCESS)
     {
         while((o = IOIteratorNext(it)) != 0)
         {
-            printEntry(o, match, dump, set);
+            succ = printEntry(o, match, dump, set);
             IOObjectRelease(o);
+            if(!succ)
+            {
+                retval = -1;
+                break;
+            }
         }
         IOObjectRelease(it);
     }
-    return 0;
+    return retval;
 }

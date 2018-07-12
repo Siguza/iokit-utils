@@ -1,6 +1,5 @@
-VERSION = 1.2.0
+VERSION = 1.2.1
 BINDIR  = bin
-INCDIR  = include
 SRCDIR  = src
 ALL     = $(patsubst $(SRCDIR)/%.c,%,$(wildcard $(SRCDIR)/*.c))
 PKG     = pkg
@@ -14,18 +13,12 @@ IOKIT   ?= /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/
 
 all: $(addprefix $(BINDIR)/, $(ALL))
 
-$(BINDIR)/%: $(SRCDIR)/%.c | $(INCDIR) $(BINDIR)
+$(BINDIR)/%: $(SRCDIR)/%.c | $(BINDIR)
 	$(CC) -o $@.osx $< $(CFLAGS)
-	xcrun -sdk iphoneos $(CC) -arch armv7 -arch arm64 -o $@.ios $< $(CFLAGS) -I$(INCDIR)
+	xcrun -sdk iphoneos $(CC) -arch armv7 -arch arm64 -o $@.ios $< $(CFLAGS)
 	lipo -create -output $@ $@.osx $@.ios
 	codesign -s - $@
 	rm -f $@.osx $@.ios
-
-$(INCDIR):
-	mkdir $(INCDIR)
-	ln -s $(IOKIT) $(INCDIR)/IOKit
-	mkdir $(INCDIR)/libkern
-	ln -s $(LIBKERN)/libkern/OSTypes.h $(INCDIR)/libkern/OSTypes.h
 
 $(BINDIR):
 	mkdir -p $(BINDIR)

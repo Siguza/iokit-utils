@@ -1,6 +1,5 @@
 .DS_Store
 /bin
-/include
 /pkg
 /*.tar.xz
 /*.deb

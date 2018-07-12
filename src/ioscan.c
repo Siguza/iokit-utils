@@ -11,15 +11,14 @@
 #include <mach/mach_traps.h>    // mach_host_self
 #include <mach/port.h>          // MACH_PORT_NULL, MACH_PORT_VALID
 
-#include <IOKit/IOKitLib.h>     // IO*, io_*, kIO*
-
 #include "common.h"
+#include "iokit.h"
 
 typedef struct ioscan
 {
     struct ioscan *next;
-    CFStringRef class;
-    CFStringRef ucClass;
+    io_name_t class;
+    io_name_t ucClass;
     io_name_t name;
     uint32_t type;
     kern_return_t spawn;
@@ -37,7 +36,6 @@ static ioscan_t** processEntry(io_object_t o, const char *plane, const char *mat
     }
     if(!match || IOObjectConformsTo(o, match) || (name[0] && strcmp(name, match) == 0))
     {
-        CFStringRef class = IOObjectCopyClass(o);
         for(uint32_t i = min; i <= max; ++i)
         {
             io_connect_t one = MACH_PORT_NULL,
@@ -54,17 +52,23 @@ static ioscan_t** processEntry(io_object_t o, const char *plane, const char *mat
                 if(!data)
                 {
                     LOG(COLOR_RED "Failed to allocate entry for %s: %s" COLOR_RESET, name, strerror(errno));
-                    exit(1);
+                    return NULL;
                 }
                 data->next = NULL;
-                data->class = class;
-                if(class) CFRetain(class);
-                strlcpy(data->name, name, sizeof(io_name_t));
+                data->class[0] = '\0';
+                data->ucClass[0] = '\0';
+                data->name[0] = '\0';
                 data->type = i;
                 data->spawn = ret;
                 data->one = one;
                 data->two = two;
-                data->ucClass = NULL;
+
+                strlcpy(data->name, name, sizeof(io_name_t));
+                ret = IOObjectGetClass(o, name);
+                if(ret == KERN_SUCCESS)
+                {
+                    strlcpy(data->class, name, sizeof(io_name_t));
+                }
                 if(ret == KERN_SUCCESS && MACH_PORT_VALID(one))
                 {
                     io_iterator_t it = MACH_PORT_NULL;
@@ -83,12 +87,11 @@ static ioscan_t** processEntry(io_object_t o, const char *plane, const char *mat
                                 {
                                     if(pid == getpid())
                                     {
-                                        CFStringRef ucClass = IOObjectCopyClass(client);
-                                        if(ucClass)
+                                        ret = IOObjectGetClass(client, name);
+                                        if(ret == KERN_SUCCESS)
                                         {
-                                            data->ucClass = ucClass;
+                                            strlcpy(data->ucClass, name, sizeof(io_name_t));
                                         }
-                                        CFRelease(p);
                                         IOObjectRelease(client);
                                         break;
                                     }
@@ -108,8 +111,6 @@ static ioscan_t** processEntry(io_object_t o, const char *plane, const char *mat
             if(one) IOServiceClose(one);
             if(two) IOServiceClose(two);
         }
-
-        if(class) CFRelease(class);
     }
     return ptr;
 }
@@ -147,7 +148,7 @@ int main(int argc, const char **argv)
         else if(strcmp(argv[aoff], "-h") == 0)
         {
             print_help(argv[0]);
-            return 0;
+            return -1;
         }
         else if(strcmp(argv[aoff], "-p") == 0)
         {
@@ -157,7 +158,7 @@ int main(int argc, const char **argv)
                 LOG(COLOR_RED "Missing argument to -p" COLOR_RESET);
                 printf("\n");
                 print_help(argv[0]);
-                return 1;
+                return -1;
             }
             plane = argv[aoff];
         }
@@ -170,7 +171,7 @@ int main(int argc, const char **argv)
             LOG(COLOR_RED "Unrecognized argument: %s" COLOR_RESET, argv[aoff]);
             printf("\n");
             print_help(argv[0]);
-            return 1;
+            return -1;
         }
     }
 
@@ -200,7 +201,7 @@ int main(int argc, const char **argv)
     if(!objs)
     {
         LOG(COLOR_RED "Failed to allocate objects buffer: %s" COLOR_RESET, strerror(errno));
-        return 1;
+        return -1;
     }
 
     objs[idx++] = IORegistryGetRootEntry(kIOMasterPortDefault);
@@ -217,7 +218,7 @@ int main(int argc, const char **argv)
                 if(!objs)
                 {
                     LOG(COLOR_RED "Failed to reallocate objects buffer: %s" COLOR_RESET, strerror(errno));
-                    return 1;
+                    return -1;
                 }
             }
             objs[idx++] = o;
@@ -230,6 +231,22 @@ int main(int argc, const char **argv)
     for(size_t i = 0; i < idx; ++i)
     {
         ptr = processEntry(objs[i], plane, match, min, max, only_success, ptr);
+        if(!ptr)
+        {
+            for(; i < idx; ++i)
+            {
+                IOObjectRelease(objs[i]);
+            }
+            free(objs);
+            objs = NULL;
+            for(ioscan_t *node = head; node != NULL; )
+            {
+                ioscan_t *next = node->next;
+                free(node);
+                node = next;
+            }
+            return -1;
+        }
         IOObjectRelease(objs[i]);
     }
     free(objs);
@@ -246,7 +263,7 @@ int main(int argc, const char **argv)
 
     for(ioscan_t *node = head; node != NULL; node = node->next)
     {
-        int l  = strlen(node->class ? CFStringGetCStringPtr(node->class, kCFStringEncodingUTF8) : "failed");
+        int l  = strlen(node->class[0] ? node->class : "failed");
         if(l > classLen) classLen = l;
         l = strlen(node->name);
         if(l == 0)
@@ -258,11 +275,8 @@ int main(int argc, const char **argv)
         if(l > typeLen) typeLen = l;
         spawnLen = strlen(mach_error_string(node->spawn));
         if(l > spawnLen) spawnLen = l;
-        if(node->ucClass)
-        {
-            l = strlen(CFStringGetCStringPtr(node->ucClass, kCFStringEncodingUTF8));
-            if(l > ucLen) ucLen = l;
-        }
+        l = strlen(node->ucClass);
+        if(l > ucLen) ucLen = l;
         l = 1 + (node->one == 0 ? 0 : (int)floor(log2(node->one) / 4)); // Hex
         if(l > oneLen) oneLen = l;
         l = 1 + (node->two == 0 ? 0 : (int)floor(log2(node->two) / 4)); // Hex
@@ -283,16 +297,14 @@ int main(int argc, const char **argv)
     {
         ioscan_t *next = node->next;
         LOG("%s%-*s%s %s%-*s%s %s%*u%s %s%-*s%s %s%-*s%s %*x %*x %-*s",
-            node->class ? "" : COLOR_RED, classLen, node->class ? CFStringGetCStringPtr(node->class, kCFStringEncodingUTF8) : "failed", node->class ? "" : COLOR_RESET,
-            node->name[0] ? "" : COLOR_RED, nameLen, node->name[0] ? node->name : "failed", node->name[0] ? "" : COLOR_RESET,
+            node->class[0] ? "" : COLOR_RED, classLen, node->class[0] ? node->class : "failed", node->class[0] ? "" : COLOR_RESET,
+            node->name[0]  ? "" : COLOR_RED, nameLen,  node->name[0]  ? node->name  : "failed", node->name[0]  ? "" : COLOR_RESET,
             COLOR_PURPLE, typeLen, node->type, COLOR_RESET,
             node->spawn == KERN_SUCCESS ? COLOR_GREEN : COLOR_YELLOW, spawnLen, mach_error_string(node->spawn), COLOR_RESET,
-            COLOR_BLUE, ucLen, node->ucClass ? CFStringGetCStringPtr(node->ucClass, kCFStringEncodingUTF8) : "", COLOR_RESET,
+            COLOR_BLUE, ucLen, node->ucClass, COLOR_RESET,
             oneLen, node->one,
             twoLen, node->two,
             equalLen, node->two == 0 ? "" : node->one == node->two ? "==" : "!=");
-        if(node->class) CFRelease(node->class);
-        if(node->ucClass) CFRelease(node->ucClass);
         free(node);
         node = next;
     }
