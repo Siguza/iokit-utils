@@ -21,6 +21,11 @@ enum
 
 enum
 {
+    kIOMapAnywhere                  = 0x00000001U,
+};
+
+enum
+{
     kIORegistryIterateRecursively   = 0x00000001U,
     kIORegistryIterateParents       = 0x00000002U,
 };
@@ -82,6 +87,7 @@ io_service_t IOServiceGetMatchingService(mach_port_t master, CFDictionaryRef mat
 kern_return_t IOServiceGetMatchingServices(mach_port_t master, CFDictionaryRef matching CF_RELEASES_ARGUMENT, io_iterator_t *it);
 kern_return_t _IOServiceGetAuthorizationID(io_service_t service, uint64_t *authID);
 kern_return_t _IOServiceSetAuthorizationID(io_service_t service, uint64_t authID);
+kern_return_t IOServiceGetBusyStateAndTime(io_service_t service, uint64_t *state, uint32_t *busyState, uint64_t *busyTime);
 kern_return_t IOServiceOpen(io_service_t service, task_t task, uint32_t type, io_connect_t *client);
 kern_return_t IOServiceClose(io_connect_t client);
 kern_return_t IOCloseConnection(io_connect_t client);
