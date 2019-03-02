@@ -1,7 +1,7 @@
-VERSION = 1.2.3
+VERSION = 1.3.0
 BINDIR  = bin
 SRCDIR  = src
-ALL     = $(patsubst $(SRCDIR)/%.c,%,$(wildcard $(SRCDIR)/*.c))
+ALL     = $(patsubst $(SRCDIR)/%.c,%,$(wildcard $(SRCDIR)/io*.c))
 PKG     = pkg
 XZ      = iokit-utils.tar.xz
 DEB     = net.siguza.iokit-utils_$(VERSION)_iphoneos-arm.deb
@@ -14,8 +14,8 @@ IOKIT   ?= /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/
 all: $(addprefix $(BINDIR)/, $(ALL))
 
 $(BINDIR)/%: $(SRCDIR)/%.c | $(BINDIR)
-	$(CC) -o $@.osx $< $(CFLAGS)
-	xcrun -sdk iphoneos $(CC) -arch armv7 -arch arm64 -o $@.ios $< $(CFLAGS)
+	$(CC) -o $@.osx $< $(SRCDIR)/cfj.c $(CFLAGS)
+	xcrun -sdk iphoneos $(CC) -arch armv7 -arch arm64 -o $@.ios $< $(SRCDIR)/cfj.c $(CFLAGS)
 	lipo -create -output $@ $@.osx $@.ios
 	codesign -s - $@
 	rm -f $@.osx $@.ios

@@ -5,10 +5,11 @@
 #include <mach/mach.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+#include "cfj.h"
 #include "common.h"
 #include "iokit.h"
 
-static bool printEntry(io_object_t o, const char *match, bool dump, bool set)
+static bool printEntry(io_object_t o, const char *match, bool xml, bool json, bool set)
 {
     static CFDictionaryRef dict = NULL;
     if(set && dict == NULL)
@@ -50,7 +51,7 @@ static bool printEntry(io_object_t o, const char *match, bool dump, bool set)
         }
         else
         {
-            if(dump)
+            if(xml || json)
             {
                 CFMutableDictionaryRef p = NULL;
                 kern_return_t ret = IORegistryEntryCreateCFProperties(o, &p, NULL, 0);
@@ -60,15 +61,22 @@ static bool printEntry(io_object_t o, const char *match, bool dump, bool set)
                 );
                 if(ret == KERN_SUCCESS)
                 {
-                    CFDataRef xml = CFPropertyListCreateData(NULL, p, kCFPropertyListXMLFormat_v1_0, 0, NULL);
                     if(xml)
                     {
-                        LOG("%.*s", (int)CFDataGetLength(xml), CFDataGetBytePtr(xml));
-                        CFRelease(xml);
+                        CFDataRef prop = CFPropertyListCreateData(NULL, p, kCFPropertyListXMLFormat_v1_0, 0, NULL);
+                        if(prop)
+                        {
+                            LOG("%.*s", (int)CFDataGetLength(prop), CFDataGetBytePtr(prop));
+                            CFRelease(prop);
+                        }
+                        else
+                        {
+                            CFShow(p);
+                        }
                     }
-                    else
+                    if(json)
                     {
-                        CFShow(p);
+                        cfj_print(stdout, p);
                     }
                     CFRelease(p);
                 }
@@ -94,6 +102,7 @@ static void print_help(const char *self)
            "Options:\n"
            "    -d          Dump (print) the entries' properties\n"
            "    -h          Print this help and exit\n"
+           "    -j          Print properties in JSON-like format\n"
            "    -p plane    Iterate over the given registry plane (default: IOService)\n"
            "    -s          Try to set the entries' properties\n"
            , self
@@ -102,8 +111,9 @@ static void print_help(const char *self)
 
 int main(int argc, const char **argv)
 {
-    bool dump  = false,
-         set    = false;
+    bool xml  = false,
+         json = false,
+         set  = false;
     const char *plane = "IOService";
     int aoff;
     for(aoff = 1; aoff < argc; ++aoff)
@@ -119,7 +129,11 @@ int main(int argc, const char **argv)
         }
         else if(strcmp(argv[aoff], "-d") == 0)
         {
-            dump = true;
+            xml  = true;
+        }
+        else if(strcmp(argv[aoff], "-j") == 0)
+        {
+            json = true;
         }
         else if(strcmp(argv[aoff], "-p") == 0)
         {
@@ -148,7 +162,7 @@ int main(int argc, const char **argv)
 
     const char *match = aoff < argc ? argv[aoff] : NULL;
     io_object_t o = IORegistryGetRootEntry(kIOMasterPortDefault);
-    bool succ = printEntry(o, match, dump, set);
+    bool succ = printEntry(o, match, xml, json, set);
     IOObjectRelease(o);
     if(!succ)
     {
@@ -161,7 +175,7 @@ int main(int argc, const char **argv)
     {
         while((o = IOIteratorNext(it)) != 0)
         {
-            succ = printEntry(o, match, dump, set);
+            succ = printEntry(o, match, xml, json, set);
             IOObjectRelease(o);
             if(!succ)
             {
