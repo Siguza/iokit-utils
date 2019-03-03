@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <CoreFoundation/CoreFoundation.h>
 
+#include "cfj.h"
+
 // The output differs from actual JSON in that:
 // - Dict keys aren't string literals, but just plain text
 // - Nothing is escaped inside string literals
