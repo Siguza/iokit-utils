@@ -65,6 +65,7 @@ CFStringRef IOObjectCopySuperclassForClass(CFStringRef name);
 CFStringRef IOObjectCopyBundleIdentifierForClass(CFStringRef name);
 
 io_registry_entry_t IORegistryGetRootEntry(mach_port_t master);
+io_registry_entry_t IORegistryEntryFromPath(mach_port_t master, const io_string_t path);
 kern_return_t IORegistryEntryGetName(io_registry_entry_t entry, io_name_t name);
 kern_return_t IORegistryEntryGetRegistryEntryID(io_registry_entry_t entry, uint64_t *entryID);
 kern_return_t IORegistryEntryGetPath(io_registry_entry_t entry, const io_name_t plane, io_string_t path);
