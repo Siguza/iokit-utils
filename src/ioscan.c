@@ -37,7 +37,7 @@ static ioscan_t** processEntry(io_object_t o, const char *plane, const char *mat
     if(!match || IOObjectConformsTo(o, match) || (name[0] && strcmp(name, match) == 0))
     {
         io_name_t class;
-        ret = IOObjectGetClass(o, class);
+        ret = _IOObjectGetClass(o, kIOClassNameOverrideNone, class);
         if(ret != KERN_SUCCESS)
         {
             class[0] = '\0';
@@ -91,7 +91,7 @@ static ioscan_t** processEntry(io_object_t o, const char *plane, const char *mat
                                     if(pid == getpid())
                                     {
                                         io_name_t ucClass;
-                                        ret = IOObjectGetClass(client, ucClass);
+                                        ret = _IOObjectGetClass(client, kIOClassNameOverrideNone, ucClass);
                                         if(ret == KERN_SUCCESS)
                                         {
                                             strlcpy(data->ucClass, ucClass, sizeof(io_name_t));

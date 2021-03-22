@@ -21,6 +21,11 @@ enum
 
 enum
 {
+    kIOClassNameOverrideNone        = 0x00000001U,
+};
+
+enum
+{
     kIOMapAnywhere                  = 0x00000001U,
 };
 
@@ -60,7 +65,9 @@ kern_return_t IOObjectRelease(io_object_t object);
 boolean_t IOObjectConformsTo(io_object_t object, const io_name_t name);
 uint32_t IOObjectGetKernelRetainCount(io_object_t object);
 kern_return_t IOObjectGetClass(io_object_t object, io_name_t name);
+kern_return_t _IOObjectGetClass(io_object_t object, uint64_t options, io_name_t name);
 CFStringRef IOObjectCopyClass(io_object_t object);
+CFStringRef _IOObjectCopyClass(io_object_t object, uint64_t options);
 CFStringRef IOObjectCopySuperclassForClass(CFStringRef name);
 CFStringRef IOObjectCopyBundleIdentifierForClass(CFStringRef name);
 

@@ -34,7 +34,7 @@ static bool printEntry(io_object_t o, const char *match, bool xml, bool json, bo
     if(!match || IOObjectConformsTo(o, match) || strcmp(name, match) == 0)
     {
         io_name_t class;
-        ret = IOObjectGetClass(o, class);
+        ret = _IOObjectGetClass(o, kIOClassNameOverrideNone, class);
         if(ret != KERN_SUCCESS)
         {
             LOG(COLOR_RED "class(%s): %s" COLOR_RESET, name, mach_error_string(ret));
