@@ -26,18 +26,19 @@ Iterate over all entries in a registry plane and perform operations on them.
 
 Usage:
 
-    ioprint [-d] [-h] [-p Plane] [-s] [Name]
+    ioprint [-d] [-j] [-k] [-o] [-h] [-p Plane] [-s] [Name]
 
 All arguments are optional.  
 Class names of all considered objects as well as return values are always printed.
 
 - `Name`: Limit the performed operations to only objects that either extend a class `Name`, or whose name in the registry is `Name`. If none is given, all objects are processed.
-- `-d`: Print the registry properties of all objects.
+- `-d`: Print IOKit properties in XML format.
 - `-h`: Print a help and exit.
+- `-j`: Print IOKit properties in JSON format.
+- `-k`: Print IOKit properties in mix between JSON and hexdump.
+- `-o`: Print only IOKit properties and nothing else.
 - `-s`: Try to set properties `<key>herp</key><string>derp</string>` on all objects.
 - `-p Plane`: Iterate over registry plane `Plane`. Default is `IOService`.
-
-If both are given, `-s` takes precedence over `-d`.
 
 ### Examples
 

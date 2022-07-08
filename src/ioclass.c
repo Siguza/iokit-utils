@@ -1,3 +1,13 @@
+/* Copyright (c) 2017-2018 Siguza
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * This Source Code Form is "Incompatible With Secondary Licenses", as
+ * defined by the Mozilla Public License, v. 2.0.
+**/
+
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -28,14 +38,14 @@ int main(int argc, const char **argv)
         }
         else
         {
-            LOG(COLOR_RED "Unrecognized argument: %s" COLOR_RESET, argv[aoff]);
+            ERR(COLOR_RED "Unrecognized argument: %s" COLOR_RESET, argv[aoff]);
             return -1;
         }
     }
 
     if(argc - aoff < 1)
     {
-        LOG("Usage: %s [-b] [-e] ClassName", argv[0]);
+        ERR("Usage: %s [-b] [-e] ClassName", argv[0]);
         return -1;
     }
 

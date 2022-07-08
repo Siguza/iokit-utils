@@ -1,3 +1,13 @@
+/* Copyright (c) 2017-2021 Siguza
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * This Source Code Form is "Incompatible With Secondary Licenses", as
+ * defined by the Mozilla Public License, v. 2.0.
+**/
+
 #include <errno.h>              // errno
 #include <math.h>               // floor, log2
 #include <stdbool.h>            // bool, true, false
@@ -57,7 +67,7 @@ static ioscan_t** processEntry(io_object_t o, const char *plane, const char *mat
                 ioscan_t *data = malloc(sizeof(ioscan_t));
                 if(!data)
                 {
-                    LOG(COLOR_RED "Failed to allocate entry for %s: %s" COLOR_RESET, name, strerror(errno));
+                    ERR(COLOR_RED "Failed to allocate entry for %s: %s" COLOR_RESET, name, strerror(errno));
                     return NULL;
                 }
                 data->next = NULL;
@@ -158,7 +168,7 @@ int main(int argc, const char **argv)
             ++aoff;
             if(aoff >= argc)
             {
-                LOG(COLOR_RED "Missing argument to -p" COLOR_RESET);
+                ERR(COLOR_RED "Missing argument to -p" COLOR_RESET);
                 printf("\n");
                 print_help(argv[0]);
                 return -1;
@@ -171,7 +181,7 @@ int main(int argc, const char **argv)
         }
         else
         {
-            LOG(COLOR_RED "Unrecognized argument: %s" COLOR_RESET, argv[aoff]);
+            ERR(COLOR_RED "Unrecognized argument: %s" COLOR_RESET, argv[aoff]);
             printf("\n");
             print_help(argv[0]);
             return -1;
@@ -203,7 +213,7 @@ int main(int argc, const char **argv)
     io_object_t *objs = malloc(num * sizeof(io_object_t));
     if(!objs)
     {
-        LOG(COLOR_RED "Failed to allocate objects buffer: %s" COLOR_RESET, strerror(errno));
+        ERR(COLOR_RED "Failed to allocate objects buffer: %s" COLOR_RESET, strerror(errno));
         return -1;
     }
 
@@ -220,7 +230,7 @@ int main(int argc, const char **argv)
                 objs = realloc(objs, num * sizeof(io_object_t));
                 if(!objs)
                 {
-                    LOG(COLOR_RED "Failed to reallocate objects buffer: %s" COLOR_RESET, strerror(errno));
+                    ERR(COLOR_RED "Failed to reallocate objects buffer: %s" COLOR_RESET, strerror(errno));
                     return -1;
                 }
             }

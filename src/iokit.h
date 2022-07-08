@@ -1,3 +1,5 @@
+// This file is Public Domain.
+
 #ifndef IOKIT_H
 #define IOKIT_H
 
