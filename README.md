@@ -122,3 +122,7 @@ Spawn an `IOGraphicsDevice` user client of type `1`:
     AppleIntelFramebuffer AppleIntelFramebuffer    1 (os/kern) successful IOFramebufferSharedUserClient 8307 8307 ==   
     AppleIntelFramebuffer AppleIntelFramebuffer    1 (os/kern) successful IOFramebufferSharedUserClient 8d07 8d07 ==   
     AppleIntelFramebuffer AppleIntelFramebuffer    1 (os/kern) successful IOFramebufferSharedUserClient 9407 9407 ==   
+
+### License
+
+[MPL2](https://github.com/Siguza/iokit-utils/blob/master/LICENSE) with Exhibit B, except for [`iokit.h`](https://github.com/Siguza/iokit-utils/blob/master/src/iokit.h) which is Public Domain.
