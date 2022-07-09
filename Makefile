@@ -9,6 +9,7 @@ C_FLAGS    ?= -Wall -O3 -framework IOKit -framework CoreFoundation -framework Se
 CC_FLAGS   ?= -arch x86_64 -arch arm64
 IOS_CC     ?= xcrun -sdk iphoneos clang
 IOS_CFLAGS ?= -arch armv7 -arch arm64
+CODESIGN   ?= codesign
 
 
 .PHONY: all dist xz deb clean
@@ -17,11 +18,11 @@ all: $(addprefix $(BINDIR)/macos/, $(ALL)) $(addprefix $(BINDIR)/ios/, $(ALL))
 
 $(BINDIR)/macos/%: $(SRCDIR)/%.c $(SRCDIR)/common.c $(SRCDIR)/cfj.c | $(BINDIR)/macos
 	$(CC) $(CC_FLAGS) $(C_FLAGS) -o $@ $^
-	codesign -s - $@
+	$(CODESIGN) -s - $@
 
 $(BINDIR)/ios/%: $(SRCDIR)/%.c $(SRCDIR)/common.c $(SRCDIR)/cfj.c | $(BINDIR)/ios
 	$(IOS_CC) $(IOS_CFLAGS) $(C_FLAGS) -o $@ $^
-	codesign -s - $@
+	$(CODESIGN) -s - $@
 
 dist: xz deb
 
