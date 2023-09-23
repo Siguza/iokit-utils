@@ -68,15 +68,27 @@ int main(int argc, const char **argv)
             {
                 if(CFEqual(current, class))
                 {
+                    char classStr[512];
+                    if(!CFStringGetCString(actual, classStr, sizeof(classStr), kCFStringEncodingUTF8))
+                    {
+                        ERR(COLOR_RED "Failed to convert class name to UTF-8." COLOR_RESET);
+                        return -1;
+                    }
                     if(bundle)
                     {
                         CFStringRef bndl = IOObjectCopyBundleIdentifierForClass(actual);
-                        LOG(COLOR_CYAN "%s" COLOR_RESET " (%s)", CFStringGetCStringPtr(actual, kCFStringEncodingUTF8), CFStringGetCStringPtr(bndl, kCFStringEncodingUTF8));
+                        char bundleStr[512];
+                        if(!CFStringGetCString(bndl, bundleStr, sizeof(bundleStr), kCFStringEncodingUTF8))
+                        {
+                            ERR(COLOR_RED "Failed to convert bundle name to UTF-8." COLOR_RESET);
+                            return -1;
+                        }
+                        LOG("%s (%s)", classStr, bundleStr);
                         CFRelease(bndl);
                     }
                     else
                     {
-                        LOG(COLOR_CYAN "%s" COLOR_RESET, CFStringGetCStringPtr(actual, kCFStringEncodingUTF8));
+                        LOG("%s", classStr);
                     }
                     CFRelease(current);
                     break;
@@ -94,23 +106,35 @@ int main(int argc, const char **argv)
     }
     else if(bundle)
     {
-        CFStringRef str = IOObjectCopyBundleIdentifierForClass(class);
-        if(str)
+        CFStringRef bndl = IOObjectCopyBundleIdentifierForClass(class);
+        if(bndl)
         {
-            LOG("%s", CFStringGetCStringPtr(str, kCFStringEncodingUTF8));
+            char bundleStr[512];
+            if(!CFStringGetCString(bndl, bundleStr, sizeof(bundleStr), kCFStringEncodingUTF8))
+            {
+                ERR(COLOR_RED "Failed to convert bundle name to UTF-8." COLOR_RESET);
+                return -1;
+            }
+            LOG("%s", bundleStr);
         }
         else
         {
             LOG(COLOR_RED "Class not found" COLOR_RESET);
         }
-        CFRelease(str);
+        CFRelease(bndl);
         CFRelease(class);
     }
     else
     {
         for(int i = 0; class != NULL; ++i)
         {
-            LOG("%*s%s", i, "", CFStringGetCStringPtr(class, kCFStringEncodingUTF8));
+            char classStr[512];
+            if(!CFStringGetCString(class, classStr, sizeof(classStr), kCFStringEncodingUTF8))
+            {
+                ERR(COLOR_RED "Failed to convert class name to UTF-8." COLOR_RESET);
+                return -1;
+            }
+            LOG("%*s%s", i, "", classStr);
             CFStringRef super = IOObjectCopySuperclassForClass(class);
             CFRelease(class);
             class = super;
